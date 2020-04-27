@@ -6,6 +6,7 @@ import SseGeometry from "./SseGeometry";
 import SsePointerTool from "./tools/SsePointerTool"
 import SseCutTool from "./tools/SseCutTool";
 import SsePolygonTool from "./tools/SsePolygonTool";
+import SseIntelligentScissorsTool from "./tools/SseIntelligentScissorsTool";
 import SseRectangleTool from "./tools/SseRectangleTool";
 import SseFloodTool from "./tools/SseFloodTool";
 import ImageFilters from "canvas-filters";
@@ -872,6 +873,7 @@ export default class SseEditor2d extends React.Component {
         this.cutTool.remove();
         this.rectangleTool.remove();
         this.polygonTool.remove();
+        this.iScissorsTool.remove();
         this.snapIndicator = this.snapColor = this.snapPoint = this.snapSegment = null;
         this.setCurrentSample(null);
         this.mainLayer.remove();
@@ -990,6 +992,7 @@ export default class SseEditor2d extends React.Component {
         this.onMsg("polygon", () => this.polygonTool.activate());
         this.onMsg("rectangle", () => this.rectangleTool.activate());
         this.onMsg("flood", () => this.floodTool.activate());
+        this.onMsg("iscissors", () => this.iScissorsTool.activate());
 
 
         this.onMsg("strokes", (arg) => this.showStrokes(arg.value));
@@ -1051,6 +1054,9 @@ export default class SseEditor2d extends React.Component {
         this.frontLayer.onMouseMove = this.hitTesting.bind(this);
 
         this.rasterLayer.activate();
+
+        // New Intelligent Scissors tool
+        this.iScissorsTool = new SseIntelligentScissorsTool(this);
 
         this.polygonTool = new SsePolygonTool(this);
         this.pointerTool = new SsePointerTool(this);

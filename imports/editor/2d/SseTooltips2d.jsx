@@ -50,6 +50,10 @@ export default class SseTooltips2d extends React.Component {
                     straight line crossing one or more existing polygons</p>
                 <p>Hit F one or several times to choose what workaround path to use</p>
             </div>
+            <div id="iScissorsCommandHelp">
+                <p><strong>Intelligent Scissors Tool</strong></p>
+                <p>Insert Help here.</p>
+            </div>
         </div>
     }
 }
