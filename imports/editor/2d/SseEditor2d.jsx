@@ -1343,6 +1343,7 @@ export default class SseEditor2d extends React.Component {
             this.undoRedo.init(document.URL, this.currentSample);
             this.setCurrentSample(this.currentSample); // Workaround for late registered components
             this.floodTool.initCanvas($("#sourceImage").get(0));
+            this.iScissorsTool.initCanvas($("#sourceImage").get(0));
             this.sendMsg("sse-image-loaded");
         };
     }
