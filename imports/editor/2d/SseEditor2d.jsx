@@ -1415,6 +1415,7 @@ export default class SseEditor2d extends React.Component {
 
         this.raster.setImageData(filtered, 0, 0);
         this.floodTool.setImageData(filtered);
+        this.iScissorsTool.setImageData(filtered);
     }
 
     render() {
