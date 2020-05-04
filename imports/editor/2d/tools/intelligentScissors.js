@@ -35,7 +35,7 @@ export default class IntelligentScissors {
     }
 
     getPointer = function(px, py) {
-        return this.mapGetArray(this.pointers, [py, px]);
+        return this.intToCoords(this.pointers.get(this.coordsToInt([py, px])));
     }
 
     setSeedPoint = function (px, py) {
@@ -183,7 +183,8 @@ export default class IntelligentScissors {
          let DpLpq = dot(Dp, Lpq);
          let LpqDq = dot(Lpq, Dq);
 
-         return (1/Math.PI) * (Math.acos(DpLpq) + Math.acos(LpqDq));
+         let gradientDirection = (1/Math.PI) * (Math.acos(DpLpq) + Math.acos(LpqDq));
+         return isNaN(gradientDirection) ? 0 : gradientDirection;
     }
 
     /**
@@ -210,96 +211,54 @@ export default class IntelligentScissors {
      * @param py
      */
     calculatePathMatrix = function (px, py) {
-        let seed = [px, py];        // [x, y]
-        let activePixel = new Map() // List of active pixel sorted by cost
-        let neighbours = [];        // Neighborhood set of q (contains 8 pixel)
-        let expanded = new Set();   // Set that holds all expanded pixel
+        // save Pixel by y * width + x
+        let seed = this.coordsToInt([px,py]);  // Seed point
+        let activePixel = new Map()                 // List of active pixel sorted by cost
+        let neighbours = [];                        // Neighborhood set of q (contains 8 pixel)
+        let expanded = new Set();                   // Set that holds all expanded pixel
+
+        let index = 0;
 
         activePixel.set(seed, 0);
         while (activePixel.size > 0) {
             let q = this.getMinCost(activePixel);
-            if (q == null) console.log(activePixel);
             neighbours = this.getNeighbours(q);
             expanded.add(q);
-            activePixel.delete(q); // works because getMinCost returns the actual key
 
             for (let r of neighbours) {
-                if (!this.setHasArray(expanded, r)){
-                    let tempCost = this.mapGetArray(activePixel, q) +
-                        this.getLocalCost(q[0], q[1], r[0], r[1]); // compute total cost to neighbour
-                    if (this.mapHasArray(activePixel, r)) {
-                        if (tempCost < this.mapGetArray(activePixel, r)) {
-                            activePixel.delete(this.mapGetKeyArray(activePixel, r)); // Remove higher cost neighbours from list
+                if (!expanded.has(r)){
+
+                    // Infinit loop Here (the same pixel are processed over and over )
+
+                    let qx = this.intToCoords(q)[0]; console.log(qx);
+                    let qy = this.intToCoords(q)[1]; console.log(qy);
+                    let rx = this.intToCoords(r)[0]; console.log(rx);
+                    let ry = this.intToCoords(r)[1]; console.log(ry);
+                    let tempCost = activePixel.get(q) +
+                        this.getLocalCost(qx, qy, rx, ry); // compute total cost to neighbour
+                    if (activePixel.has(r)) {
+                        if (tempCost < activePixel.get(r)) {
+                            activePixel.delete(r); // Remove higher cost neighbours from list
                         }
                     }
-                    if (!this.mapHasArray(activePixel, r)) {
+                    if (!activePixel.has(r)) {
                         activePixel.set(r, tempCost);
                         // set back pointer
-                        if (this.mapGetKeyArray(this.pointers, r) == null) {
-                            this.pointers.set(r, q);
-                        } else {
-                            this.pointers.set(this.mapGetKeyArray(this.pointers, r), q);
-                        }
+                        this.pointers.set(r, q);
                     }
                 }
             }
-        }
-    }
+            // delete processed Pixel
+            activePixel.delete(q);
 
-    /**
-     * Checks weather a map contains a certain Array since .has(key) does not work here
-     * @param map
-     * @param array
-     */
-    mapHasArray = function (map, array) {
-        for (let key of map.keys()) {
-            if (key[0] == array[0] && key[1] == array[1]){
-                return true;
+            index++;
+            if (index % 1000000 == 0) {
+                console.log(index);
+                console.log(activePixel.size);
+                console.log(this.pointers.size);
+                console.log(expanded.size);
             }
         }
-        return false;
-    }
-
-    /**
-     * Returns the value for an Array since .get(key) does not work here
-     * @param map
-     * @param array
-     */
-    mapGetArray = function (map, array) {
-        for (let key of map.keys()) {
-            if (key[0] == array[0] && key[1] == array[1]){
-                return map.get(key);
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Returns the correct key to a given Array.
-     * @param map
-     * @param array
-     */
-    mapGetKeyArray = function (map, array) {
-        for (let key of map.keys()) {
-            if (key[0] == array[0] && key[1] == array[1]){
-                return key;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Checks weather a set contains a certain Array since .has(key) does not work here
-     * @param set
-     * @param array
-     */
-    setHasArray = function (set, array) {
-        for (let key of set) {
-            if (key[0] == array[0] && key[1] == array[1]){
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -310,7 +269,7 @@ export default class IntelligentScissors {
     getMinCost = function (pixelMap) {
         let minCost = Infinity;
         let minPoint = null;
-        for (let point of pixelMap.keys()) { // key: [x,y] value: cost
+        for (let point of pixelMap.keys()) { // key: y * w + x value: cost
             if (pixelMap.get(point) < minCost) {
                 minCost = pixelMap.get(point);
                 minPoint = point;
@@ -325,20 +284,39 @@ export default class IntelligentScissors {
      */
     getNeighbours = function (point) {
         let neighbours = [];
-        let x = point[0];
-        let y = point[1];
+        let x = this.intToCoords(point)[0];
+        let y = this.intToCoords(point)[1];
 
         // Check if its not a boarder pixel
-        if (x != 0)             neighbours.push([x-1,y  ]);
-        if (x != this.w)        neighbours.push([x+1,y  ]);
-        if (y != 0)             neighbours.push([x  ,y-1]);
-        if (y != this.h)        neighbours.push([x  ,y+1]);
-        if (x != 0 && y != 0)       neighbours.push([x-1,y-1]);
-        if (x != 0 && y != this.h)  neighbours.push([x-1,y+1]);
-        if (x != this.w && y != 0)  neighbours.push([x+1,y-1]);
-        if (x != this.w && y != this.h) neighbours.push([x+1,y+1]);
+        if (x != 0)             neighbours.push(this.coordsToInt([x-1,y  ]));
+        if (x != this.w)        neighbours.push(this.coordsToInt([x+1,y  ]));
+        if (y != 0)             neighbours.push(this.coordsToInt([x  ,y-1]));
+        if (y != this.h)        neighbours.push(this.coordsToInt([x  ,y+1]));
+        if (x != 0 && y != 0)       neighbours.push(this.coordsToInt([x-1,y-1]));
+        if (x != 0 && y != this.h)  neighbours.push(this.coordsToInt([x-1,y+1]));
+        if (x != this.w && y != 0)  neighbours.push(this.coordsToInt([x+1,y-1]));
+        if (x != this.w && y != this.h) neighbours.push(this.coordsToInt([x+1,y+1]));
 
         return neighbours;
+    }
+
+    /**
+     * Helper function which calculates an coordinate array to an int.
+     * @param array
+     */
+    coordsToInt = function(array) {
+        return array[1] * this.w + array[0];
+    }
+
+    /**
+     * Helper function which calculates an int to an coordinate array.
+     * @param int
+     * @returns {[number, number]}
+     */
+    intToCoords = function(int) {
+        let x = int % this.w;
+        let y = (int-x) / this.w;
+        return [x, y];
     }
 
     convolve = function (input, width, height, kernel) {
