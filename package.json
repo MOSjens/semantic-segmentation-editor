@@ -40,6 +40,7 @@
     "indexof": "0.0.1",
     "jquery": "3.4.1",
     "lineclip": "1.1.5",
+    "mathjs": "^6.6.4",
     "mdi-material-ui": "5.1.1",
     "mousetrap": "1.6.2",
     "paper": "0.11.8",
