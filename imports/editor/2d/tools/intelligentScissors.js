@@ -27,7 +27,10 @@ export default class IntelligentScissors {
         this.wg = 0.14; // Gradient Magnitude
         this.wd = 0.43; // Gradient Direction
 
+        let start = new Date().getTime(); // TIME MEASUREMENT
         this.initCosts(image);
+        let time = new Date().getTime() - start;
+        console.log("Time in ms: " + time);
     }
 
     getSeedPoint = function() {
@@ -149,17 +152,6 @@ export default class IntelligentScissors {
         for (let i = 0; i < this.w * this.h; i++) {
             this.gradientMagnitude[i] = 1 - (this.gradientMagnitude[i] / maxG);
         }
-
-
-        /** For debugging
-        for (let i = 0; i < this.w * this.h; i++) {
-            var val = this.gradientMagnitude[i] * 255;
-            data[i * 4] = val;
-            data[i * 4 + 1] = val;
-            data[i * 4 + 2] = val;
-        }
-
-        this.costMatrix = data; */
     };
 
     /**
@@ -185,16 +177,7 @@ export default class IntelligentScissors {
              Lpq[1] = Lpq[1] * Math.sqrt(0.5);
          }
 
-         try {
-             var dotProduct = dot(Dp, Lpq);
-         } catch(err) {
-             console.log("qx: " + px + "qy: " + py + "rx: " + qx + "ry: " + qy);
-             console.log("Dp: " + Dp + "Dq: " + Dq);
-             console.log(err);
-         }
-
-            // dot(Dp, Lpq) < 0
-         if (dotProduct < 0) {
+         if (dot(Dp, Lpq) < 0) {
              Lpq = [px - qx, py - qy];
              if (Lpq[0] != 0 && Lpq[1] != 0) {
                  // Calculate unit vector
@@ -202,16 +185,9 @@ export default class IntelligentScissors {
                  Lpq[1] = Lpq[1] * Math.sqrt(0.5);
              }
          }
-         try {
-             var DpLpq = dot(Dp, Lpq);
-             var LpqDq = dot(Lpq, Dq);
-         } catch (err) {
-             console.log("qx: " + px + "qy: " + py + "rx: " + qx + "ry: " + qy);
-             console.log("Dp: " + Dp + "Dq: " + Dq);
-             console.log("Lpq: " + Lpq);
-             console.log(err);
-         }
 
+         let DpLpq = dot(Dp, Lpq);
+         let LpqDq = dot(Lpq, Dq);
 
          let gradientDirection = (1/Math.PI) * (Math.acos(DpLpq) + Math.acos(LpqDq));
          return isNaN(gradientDirection) ? 0 : gradientDirection;
@@ -229,10 +205,11 @@ export default class IntelligentScissors {
         // if the two points are diagonal to each other scale the cost by 1,
         // if they are direct neighbours scale them by 1/sqrt(2).
         let scale = (px == qx || py == qy) ? 1/Math.sqrt(2) : 1;
+        let intQ = this.coordsToInt([qx, qy]);
 
-        return scale * ((this.wz * this.zeroCrossings[(qy * this.w) + qx]) +
+        return scale * ((this.wz * this.zeroCrossings[intQ]) +
             (this.wd * this.getGradientDirection(px, py, qx, qy)) +
-            (this.wg * this.gradientMagnitude[(qy * this.w) + qx]));
+            (this.wg * this.gradientMagnitude[intQ]));
     }
 
     /**
@@ -249,6 +226,8 @@ export default class IntelligentScissors {
         let expanded = new Set();                   // Set that holds all expanded pixel
 
         let index = 0;
+
+        let start = new Date().getTime(); // TIME MEASUREMENT
 
         activePixel.add(seed);
         costFunction.set(seed, 0);
@@ -283,6 +262,8 @@ export default class IntelligentScissors {
 
             index++;
             if (index % 100000 == 0) {
+                let time = new Date().getTime() - start;
+                console.log("Time in ms: " + time);
                 console.log(index);
                 console.log(activePixel.size);
                 console.log(this.pointers.size);
@@ -374,10 +355,5 @@ export default class IntelligentScissors {
         }
         return output;
     }
-
-    getCostMatrix() {
-        return this.costMatrix;
-    }
-
 
 }
