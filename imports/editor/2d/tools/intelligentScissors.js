@@ -20,7 +20,7 @@ export default class IntelligentScissors {
         this.gradientMagnitude = [];
         this.pointers = new Map();   // pointers from each pixel indicating the minimum Path ([x,y]: [x,y])
 
-        this.seedPoint = null;
+        this.seedPoint = [];
 
         // Weights for the cost function
         this.wz = 0.43; // Zero-Crossings
@@ -35,7 +35,7 @@ export default class IntelligentScissors {
     }
 
     getPointer = function(px, py) {
-        return this.intToCoords(this.pointers.get(this.coordsToInt([py, px])));
+        return this.intToCoords(this.pointers.get(this.coordsToInt([px, py])));
     }
 
     setSeedPoint = function (px, py) {
@@ -43,6 +43,16 @@ export default class IntelligentScissors {
 
         this.calculatePathMatrix(px, py);
     };
+
+    getPathToSeedPoint = function(px, py) {
+        let point = [px,py];
+        let path = []
+        while(!(point[0] == this.seedPoint[0] && point[1] == this.seedPoint[1])) {
+            path.push(point);
+            point = this.intToCoords(this.pointers.get(this.coordsToInt(point)));
+        }
+        return path;
+    }
 
     /**
      * Calculate the Laplacian Zero-Crossings and Gradient Magnitude to initiate the cost functions
@@ -164,6 +174,10 @@ export default class IntelligentScissors {
          let Dp = [this.sobelY[py * this.w + px], -this.sobelX[py * this.w + px]];
          let Dq = [this.sobelY[qy * this.w + qx], -this.sobelX[qy * this.w + qx]];
 
+         if (isNaN(Dp) || isNaN (Dq)){
+             return 0;
+         }
+
          let Lpq = [qx - px, qy - py];
          if (Lpq[0] != 0 && Lpq[1] != 0) {
              // Calculate unit vector
@@ -171,7 +185,16 @@ export default class IntelligentScissors {
              Lpq[1] = Lpq[1] * Math.sqrt(0.5);
          }
 
-         if (dot(Dp, Lpq) < 0) {
+         try {
+             var dotProduct = dot(Dp, Lpq);
+         } catch(err) {
+             console.log("qx: " + px + "qy: " + py + "rx: " + qx + "ry: " + qy);
+             console.log("Dp: " + Dp + "Dq: " + Dq);
+             console.log(err);
+         }
+
+            // dot(Dp, Lpq) < 0
+         if (dotProduct < 0) {
              Lpq = [px - qx, py - qy];
              if (Lpq[0] != 0 && Lpq[1] != 0) {
                  // Calculate unit vector
@@ -179,9 +202,16 @@ export default class IntelligentScissors {
                  Lpq[1] = Lpq[1] * Math.sqrt(0.5);
              }
          }
+         try {
+             var DpLpq = dot(Dp, Lpq);
+             var LpqDq = dot(Lpq, Dq);
+         } catch (err) {
+             console.log("qx: " + px + "qy: " + py + "rx: " + qx + "ry: " + qy);
+             console.log("Dp: " + Dp + "Dq: " + Dq);
+             console.log("Lpq: " + Lpq);
+             console.log(err);
+         }
 
-         let DpLpq = dot(Dp, Lpq);
-         let LpqDq = dot(Lpq, Dq);
 
          let gradientDirection = (1/Math.PI) * (Math.acos(DpLpq) + Math.acos(LpqDq));
          return isNaN(gradientDirection) ? 0 : gradientDirection;
@@ -212,47 +242,47 @@ export default class IntelligentScissors {
      */
     calculatePathMatrix = function (px, py) {
         // save Pixel by y * width + x
-        let seed = this.coordsToInt([px,py]);  // Seed point
-        let activePixel = new Map()                 // List of active pixel sorted by cost
+        let seed = this.coordsToInt([px,py]);  // Seed point as int
+        let activePixel = new Set();                // List of active pixel
+        let costFunction = new Map();               // Total cost function
         let neighbours = [];                        // Neighborhood set of q (contains 8 pixel)
         let expanded = new Set();                   // Set that holds all expanded pixel
 
         let index = 0;
 
-        activePixel.set(seed, 0);
+        activePixel.add(seed);
+        costFunction.set(seed, 0);
         while (activePixel.size > 0) {
-            let q = this.getMinCost(activePixel);
+            let q = this.getMinCost(activePixel, costFunction);
+            if (q == null) continue;
+            activePixel.delete(q);                  // Remove minimum cost pixel from active list
             neighbours = this.getNeighbours(q);
             expanded.add(q);
 
             for (let r of neighbours) {
                 if (!expanded.has(r)){
 
-                    // Infinit loop Here (the same pixel are processed over and over )
-
-                    let qx = this.intToCoords(q)[0]; console.log(qx);
-                    let qy = this.intToCoords(q)[1]; console.log(qy);
-                    let rx = this.intToCoords(r)[0]; console.log(rx);
-                    let ry = this.intToCoords(r)[1]; console.log(ry);
-                    let tempCost = activePixel.get(q) +
+                    let qx = this.intToCoords(q)[0];
+                    let qy = this.intToCoords(q)[1];
+                    let rx = this.intToCoords(r)[0];
+                    let ry = this.intToCoords(r)[1];
+                    let tempCost = costFunction.get(q) +
                         this.getLocalCost(qx, qy, rx, ry); // compute total cost to neighbour
-                    if (activePixel.has(r)) {
-                        if (tempCost < activePixel.get(r)) {
-                            activePixel.delete(r); // Remove higher cost neighbours from list
-                        }
+
+                    if (activePixel.has(r) && tempCost < costFunction.get(r)) {
+                        activePixel.delete(r); // Remove higher cost neighbours from list
                     }
                     if (!activePixel.has(r)) {
-                        activePixel.set(r, tempCost);
-                        // set back pointer
-                        this.pointers.set(r, q);
+                        costFunction.set(r, tempCost);      // assign Neighbours total cost
+                        this.pointers.set(r, q);            // Set back pointer
+                        activePixel.add(r);
                     }
                 }
             }
-            // delete processed Pixel
-            activePixel.delete(q);
+
 
             index++;
-            if (index % 1000000 == 0) {
+            if (index % 100000 == 0) {
                 console.log(index);
                 console.log(activePixel.size);
                 console.log(this.pointers.size);
@@ -263,15 +293,15 @@ export default class IntelligentScissors {
 
     /**
      * Helper Function which returns the point with the smallest costs of the active List
-     * @param pixelSet [x, y]: costs
+     * @param pixelSet int of pixels
      * @returns Point with smallest costs
      */
-    getMinCost = function (pixelMap) {
+    getMinCost = function (pixelSet, costMap) {
         let minCost = Infinity;
         let minPoint = null;
-        for (let point of pixelMap.keys()) { // key: y * w + x value: cost
-            if (pixelMap.get(point) < minCost) {
-                minCost = pixelMap.get(point);
+        for (let point of pixelSet) { // point: y * w + x
+            if (costMap.get(point) < minCost) {
+                minCost = costMap.get(point);
                 minPoint = point;
             }
         }
@@ -289,13 +319,13 @@ export default class IntelligentScissors {
 
         // Check if its not a boarder pixel
         if (x != 0)             neighbours.push(this.coordsToInt([x-1,y  ]));
-        if (x != this.w)        neighbours.push(this.coordsToInt([x+1,y  ]));
+        if (x != this.w-1)      neighbours.push(this.coordsToInt([x+1,y  ]));
         if (y != 0)             neighbours.push(this.coordsToInt([x  ,y-1]));
-        if (y != this.h)        neighbours.push(this.coordsToInt([x  ,y+1]));
-        if (x != 0 && y != 0)       neighbours.push(this.coordsToInt([x-1,y-1]));
-        if (x != 0 && y != this.h)  neighbours.push(this.coordsToInt([x-1,y+1]));
-        if (x != this.w && y != 0)  neighbours.push(this.coordsToInt([x+1,y-1]));
-        if (x != this.w && y != this.h) neighbours.push(this.coordsToInt([x+1,y+1]));
+        if (y != this.h-1)      neighbours.push(this.coordsToInt([x  ,y+1]));
+        if (x != 0 && y != 0)               neighbours.push(this.coordsToInt([x-1,y-1]));
+        if (x != 0 && y != this.h-1)        neighbours.push(this.coordsToInt([x-1,y+1]));
+        if (x != this.w-1 && y != 0)        neighbours.push(this.coordsToInt([x+1,y-1]));
+        if (x != this.w-1 && y != this.h-1) neighbours.push(this.coordsToInt([x+1,y+1]));
 
         return neighbours;
     }

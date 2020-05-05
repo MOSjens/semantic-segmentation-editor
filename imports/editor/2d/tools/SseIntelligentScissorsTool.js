@@ -11,6 +11,7 @@ export default class SseIntelligentScissors extends SseTool {
         this.mask = null;
         this.costMatrix = null;
         this.cursor = "crosshair";
+        this.polygon = null;
         this.bindCallbacks();
     }
 
@@ -60,25 +61,21 @@ export default class SseIntelligentScissors extends SseTool {
         if (!this.isLeftButton(event) || event.modifiers.space)
             return super.viewDown(event);
         const pt = this.baseLayer().globalToLocal(event.point); // get position of the mouse
+        let mouseX = Math.floor(pt.x);
+        let mouseY = Math.floor(pt.y);
 
-        if (this.intelligentScissors.getSeedPoint() == null) {
-            this.intelligentScissors.setSeedPoint(Math.round(pt.x), Math.round(pt.y));
+        if (this.intelligentScissors.getSeedPoint().length == 0) {
+            this.intelligentScissors.setSeedPoint(mouseX, mouseY);
+        } else {
+            // draw path here
+            let path = this.intelligentScissors.getPathToSeedPoint(mouseX, mouseY);
+            path = path.map(pt => ({x: pt[0], y: pt[1]}));
+            this.polygon = new Paper.Path(path);
+            this.polygon.strokeColor = 'red';
+            this.polygon.strokeWidth = 2;
         }
 
-        // For debugging: open Image in new Window
-        /**
-        this.costMatrix = this.intelligentScissors.getCostMatrix();
-        let canvas = '<canvas id="myCanvas" width="'+ this.imageInfo.width +'" height="'+ this.imageInfo.height + '"><\canvas>';
-        var popup = window.open();
-        popup.document.write(canvas);
-        popup.document.getElementById("myCanvas")
-            .getContext("2d").putImageData(new ImageData(this.costMatrix, this.imageInfo.width, this.imageInfo.height), 0, 0);
-        popup.print();
-         */
-        //this.imageInfo.context2.putImageData(new ImageData(this.costMatrix, this.imageInfo.width, this.imageInfo.height), 0, 0);
-        //this.imageInfo.context.putImageData(this.imageInfo.data, 0, 0);
-        console.log("pointer from " + Math.round(pt.x) + " x " + Math.round(pt.y) + " to "
-            + this.intelligentScissors.getPointer(Math.round(pt.x), Math.round(pt.y)) );
-        //IntelligentScissors.setSeedPoint(this.imageInfo, Math.round(pt.x), Math.round(pt.y));
+        console.log("pointer from " + mouseX + " x " + mouseY + " to "
+            + this.intelligentScissors.getPointer(mouseX, mouseY));
     }
 }
